@@ -1,11 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
     <uses-feature
         android:name="android.software.leanback"
         android:required="false" />
     <uses-feature
         android:name="android.hardware.touchscreen"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.location"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.wifi"
         android:required="false" />
 
     <!-- Android 11+ (API 30+) Package Visibility Queries for TV Streaming Apps -->
@@ -14,6 +26,7 @@
         <package android:name="com.netflix.ninja" />
         <package android:name="in.startv.hotstar" />
         <package android:name="in.startv.hotstar.dplus.tv" />
+        <package android:name="com.jio.media.stb.ondemand" />
         <package android:name="com.amazon.amazonvideo.livingroom" />
 
         <intent>
