@@ -108,8 +108,8 @@ import kotlin.math.roundToInt
 
 // Wine Red & Coding Syntax Palette
 private val WineRedPrimary = Color(0xFFC81D4E)
-private val WineRedDeep = Color(0xFF8B1538)
-private val WineRedBright = Color(0xFFE12D62)
+private val WineRedDeep = Color(0xFF750E2A)
+private val WineRedBright = Color(0xFFE8356D)
 private val CodeCyan = Color(0xFF00F0FF)
 private val CodeGreen = Color(0xFF39FF14)
 private val CodeYellow = Color(0xFFFFEA00)
@@ -273,10 +273,10 @@ fun MinimalTvLauncherScreen() {
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black)
-                .padding(horizontal = 64.dp, vertical = 42.dp),
+                .padding(horizontal = 72.dp, vertical = 36.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Top Section: Greeting + Big Date/Time on Left, Weather + Wi-Fi + Settings on Right
+            // Top Section: Greeting + Scaled-down Clock & Date on Left, Status Pills on Right
             TopStatusHeroBar(
                 weather = weather,
                 wifiName = wifiLabel,
@@ -301,10 +301,12 @@ fun MinimalTvLauncherScreen() {
                 onSettingsClick = { launchSystemSettings(context) }
             )
 
-            // Center Section: 4 Minimal D-Pad Focusable App Tiles with Neon Glow Behind Icon
+            // Center Section: 4 Compact D-Pad Focusable App Tiles with Refined Neon Glow
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(42.dp, Alignment.CenterHorizontally),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TV_APPS.forEachIndexed { index, app ->
@@ -326,7 +328,7 @@ fun MinimalTvLauncherScreen() {
                 }
             }
 
-            // Bottom Section: "Developed by {L-PATH}" with multicolor coding characters
+            // Bottom Section: Scaled-down "Developed by {L-PATH}"
             DeveloperSignatureFooter()
         }
     }
@@ -373,9 +375,8 @@ private fun TopStatusHeroBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Top
     ) {
-        // Left: Time-of-Day Greeting + Big Coding Font Clock & Date in Wine Red + Syntax Colors
+        // Left: Time-of-Day Greeting + Compact Clock & Date in Wine Red Coding Font
         Column {
-            // Coding-style Greeting Line: // Good Morning | Good Noon | Good Evening
             Text(
                 text = buildAnnotatedString {
                     withStyle(SpanStyle(color = CodeGreen, fontWeight = FontWeight.Bold)) {
@@ -389,12 +390,12 @@ private fun TopStatusHeroBar(
                     }
                 },
                 fontFamily = FontFamily.Monospace,
-                fontSize = 24.sp
+                fontSize = 16.sp
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
-            // Big Clock in Wine Red Coding Font
+            // Clock reduced to 46.sp for balanced TV viewing
             Row(
                 verticalAlignment = Alignment.Bottom
             ) {
@@ -402,24 +403,24 @@ private fun TopStatusHeroBar(
                     text = timeMain,
                     color = WineRedPrimary,
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 74.sp,
+                    fontSize = 46.sp,
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = (-1).sp
+                    letterSpacing = (-0.5).sp
                 )
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "[$timeAmPm]",
                     color = CodeYellow,
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 22.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(bottom = 12.dp)
+                    modifier = Modifier.padding(bottom = 7.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
-            // Full Date in Wine Red + Coding Syntax Brackets
+            // Compact Date
             Text(
                 text = buildAnnotatedString {
                     withStyle(SpanStyle(color = CodePurple)) { append("date: ") }
@@ -428,14 +429,14 @@ private fun TopStatusHeroBar(
                     }
                 },
                 fontFamily = FontFamily.Monospace,
-                fontSize = 20.sp
+                fontSize = 14.sp
             )
         }
 
-        // Right Status Cluster: Weather + Connected Wi-Fi Name + Settings
+        // Right Status Cluster: Weather + Connected Wi-Fi Name + Settings (compact badges)
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // Weather Pill
             StatusInfoPill(
@@ -479,31 +480,31 @@ private fun StatusInfoPill(
 ) {
     Row(
         modifier = Modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFF0A0A0A))
-            .border(1.dp, WineRedDeep, RoundedCornerShape(14.dp))
-            .padding(horizontal = 18.dp, vertical = 12.dp),
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFF090909))
+            .border(1.dp, WineRedDeep, RoundedCornerShape(10.dp))
+            .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
             text = icon,
             fontFamily = FontFamily.Monospace,
-            fontSize = 17.sp,
+            fontSize = 14.sp,
             color = CodeYellow
         )
         Text(
             text = primaryText,
             fontFamily = FontFamily.Monospace,
             color = WineRedBright,
-            fontSize = 16.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.Bold
         )
         Text(
             text = secondaryText,
             fontFamily = FontFamily.Monospace,
             color = CodeCyan,
-            fontSize = 13.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.Medium
         )
     }
@@ -520,7 +521,7 @@ private fun FocusableStatusPill(
     val interactionSource = remember { MutableInteractionSource() }
 
     val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.07f else 1.0f,
+        targetValue = if (isFocused) 1.05f else 1.0f,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "wifiScale"
     )
@@ -532,9 +533,9 @@ private fun FocusableStatusPill(
     Row(
         modifier = Modifier
             .scale(scale)
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (isFocused) Color(0xFF14080C) else Color(0xFF0A0A0A))
-            .border(if (isFocused) 2.dp else 1.dp, borderColor, RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (isFocused) Color(0xFF14080C) else Color(0xFF090909))
+            .border(if (isFocused) 1.5.dp else 1.dp, borderColor, RoundedCornerShape(10.dp))
             .onFocusChanged {
                 if (it.isFocused && !isFocused) {
                     onFocusSound()
@@ -557,14 +558,14 @@ private fun FocusableStatusPill(
                 indication = null,
                 onClick = onClick
             )
-            .padding(horizontal = 18.dp, vertical = 12.dp),
+            .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Text(
             text = icon,
             fontFamily = FontFamily.Monospace,
-            fontSize = 14.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             color = CodeGreen
         )
@@ -572,7 +573,7 @@ private fun FocusableStatusPill(
             text = "\"$label\"",
             fontFamily = FontFamily.Monospace,
             color = WineRedBright,
-            fontSize = 15.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold
         )
     }
@@ -587,7 +588,7 @@ private fun FocusableSettingsButton(
     val interactionSource = remember { MutableInteractionSource() }
 
     val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.08f else 1.0f,
+        targetValue = if (isFocused) 1.06f else 1.0f,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "settingsScale"
     )
@@ -599,12 +600,12 @@ private fun FocusableSettingsButton(
     Box(
         modifier = Modifier
             .scale(scale)
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (isFocused) Color(0xFF19080D) else Color(0xFF0A0A0A))
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (isFocused) Color(0xFF19080D) else Color(0xFF090909))
             .border(
-                width = if (isFocused) 2.dp else 1.dp,
+                width = if (isFocused) 1.5.dp else 1.dp,
                 color = borderColor,
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(10.dp)
             )
             .onFocusChanged {
                 if (it.isFocused && !isFocused) {
@@ -628,7 +629,7 @@ private fun FocusableSettingsButton(
                 indication = null,
                 onClick = onClick
             )
-            .padding(horizontal = 18.dp, vertical = 12.dp),
+            .padding(horizontal = 14.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -641,7 +642,7 @@ private fun FocusableSettingsButton(
                 }
             },
             fontFamily = FontFamily.Monospace,
-            fontSize = 15.sp
+            fontSize = 12.sp
         )
     }
 }
@@ -657,8 +658,9 @@ private fun MinimalAppIconCard(
     var hasInitializedFocus by remember { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
 
+    // Reduced scale for minimal footprint
     val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.14f else 1.0f,
+        targetValue = if (isFocused) 1.08f else 1.0f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioLowBouncy,
             stiffness = Spring.StiffnessMediumLow
@@ -668,8 +670,8 @@ private fun MinimalAppIconCard(
 
     val infiniteTransition = rememberInfiniteTransition(label = "neonPulse")
     val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.55f,
-        targetValue = 0.92f,
+        initialValue = 0.50f,
+        targetValue = 0.85f,
         animationSpec = infiniteRepeatable(
             animation = tween(durationMillis = 1100, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
@@ -678,11 +680,11 @@ private fun MinimalAppIconCard(
     )
 
     val borderColor by animateColorAsState(
-        targetValue = if (isFocused) app.neonGlowColor else Color(0xFF1F1016),
+        targetValue = if (isFocused) app.neonGlowColor else Color(0xFF1A0D12),
         label = "tileBorder"
     )
 
-    val tileShape = RoundedCornerShape(28.dp)
+    val tileShape = RoundedCornerShape(20.dp)
 
     Column(
         modifier = modifier
@@ -712,18 +714,18 @@ private fun MinimalAppIconCard(
             ),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Box with multi-layered radial NEON GLOW behind the icon when focused
+        // Compact 136.dp x 136.dp box with soft neon glow aura
         Box(
             modifier = Modifier
-                .size(width = 192.dp, height = 192.dp)
+                .size(width = 136.dp, height = 136.dp)
                 .drawBehind {
                     if (isFocused) {
-                        val glowRadius = size.maxDimension * 0.88f
+                        val glowRadius = size.maxDimension * 0.80f
                         drawCircle(
                             brush = Brush.radialGradient(
                                 colors = listOf(
-                                    app.neonGlowColor.copy(alpha = 0.68f * pulseAlpha),
-                                    app.secondaryGlowColor.copy(alpha = 0.32f * pulseAlpha),
+                                    app.neonGlowColor.copy(alpha = 0.55f * pulseAlpha),
+                                    app.secondaryGlowColor.copy(alpha = 0.22f * pulseAlpha),
                                     Color.Transparent
                                 ),
                                 center = center,
@@ -736,26 +738,25 @@ private fun MinimalAppIconCard(
                 }
                 .clip(tileShape)
                 .background(
-                    if (isFocused) Color(0xFF0E0609) else Color(0xFF070707)
+                    if (isFocused) Color(0xFF0E0508) else Color(0xFF060606)
                 )
                 .border(
-                    width = if (isFocused) 3.dp else 1.dp,
+                    width = if (isFocused) 2.5.dp else 1.dp,
                     color = borderColor,
                     shape = tileShape
                 ),
             contentAlignment = Alignment.Center
         ) {
-            // Inner neon halo directly behind the brand icon
             if (isFocused) {
-                Canvas(modifier = Modifier.size(144.dp)) {
+                Canvas(modifier = Modifier.size(100.dp)) {
                     drawCircle(
                         brush = Brush.radialGradient(
                             colors = listOf(
-                                app.neonGlowColor.copy(alpha = 0.42f * pulseAlpha),
+                                app.neonGlowColor.copy(alpha = 0.32f * pulseAlpha),
                                 Color.Transparent
                             )
                         ),
-                        radius = size.minDimension * 0.62f
+                        radius = size.minDimension * 0.58f
                     )
                 }
             }
@@ -768,9 +769,9 @@ private fun MinimalAppIconCard(
             }
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // Coding Font App Title in Wine Red + Multi-Color Syntax Tags
+        // Compact Coding Font App Title
         Text(
             text = buildAnnotatedString {
                 if (isFocused) {
@@ -789,7 +790,7 @@ private fun MinimalAppIconCard(
                 withStyle(
                     SpanStyle(
                         color = if (isFocused) app.labelSyntaxColor else WineRedDeep,
-                        fontSize = 13.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Normal
                     )
                 ) {
@@ -797,17 +798,17 @@ private fun MinimalAppIconCard(
                 }
             },
             fontFamily = FontFamily.Monospace,
-            fontSize = 18.sp,
+            fontSize = 13.sp,
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
-        // Neon underline indicator bar when focused
+        // Subtle neon underline indicator
         Box(
             modifier = Modifier
-                .width(if (isFocused) 56.dp else 8.dp)
-                .height(4.dp)
+                .width(if (isFocused) 36.dp else 6.dp)
+                .height(3.dp)
                 .clip(CircleShape)
                 .background(if (isFocused) app.neonGlowColor else Color.Transparent)
         )
@@ -854,8 +855,8 @@ private fun DeveloperSignatureFooter() {
                 }
             },
             fontFamily = FontFamily.Monospace,
-            fontSize = 18.sp,
-            letterSpacing = 1.2.sp,
+            fontSize = 13.sp,
+            letterSpacing = 1.0.sp,
             textAlign = TextAlign.Center
         )
     }
@@ -863,7 +864,7 @@ private fun DeveloperSignatureFooter() {
 
 @Composable
 private fun YouTubeVectorLogo() {
-    Canvas(modifier = Modifier.size(104.dp)) {
+    Canvas(modifier = Modifier.size(72.dp)) {
         val w = size.width
         val h = size.height
         val rectHeight = h * 0.70f
@@ -888,7 +889,7 @@ private fun YouTubeVectorLogo() {
 
 @Composable
 private fun NetflixVectorLogo() {
-    Canvas(modifier = Modifier.size(92.dp)) {
+    Canvas(modifier = Modifier.size(64.dp)) {
         val w = size.width
         val h = size.height
         val barWidth = w * 0.22f
@@ -922,8 +923,8 @@ private fun NetflixVectorLogo() {
 private fun JioHotstarVectorLogo() {
     Box(
         modifier = Modifier
-            .size(104.dp)
-            .clip(RoundedCornerShape(26.dp))
+            .size(72.dp)
+            .clip(RoundedCornerShape(18.dp))
             .background(
                 Brush.linearGradient(
                     colors = listOf(
@@ -935,7 +936,7 @@ private fun JioHotstarVectorLogo() {
             ),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.size(68.dp)) {
+        Canvas(modifier = Modifier.size(46.dp)) {
             val w = size.width
             val h = size.height
             val cx = w / 2f
@@ -968,7 +969,7 @@ private fun JioHotstarVectorLogo() {
 @Composable
 private fun PrimeVideoVectorLogo() {
     Column(
-        modifier = Modifier.size(116.dp),
+        modifier = Modifier.size(80.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -976,15 +977,15 @@ private fun PrimeVideoVectorLogo() {
             text = "prime",
             color = Color.White,
             fontFamily = FontFamily.Monospace,
-            fontSize = 28.sp,
+            fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = (-0.5).sp
         )
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(2.dp))
         Canvas(
             modifier = Modifier
-                .width(86.dp)
-                .height(22.dp)
+                .width(60.dp)
+                .height(16.dp)
         ) {
             val w = size.width
             val h = size.height
@@ -996,7 +997,7 @@ private fun PrimeVideoVectorLogo() {
             drawPath(
                 path = smilePath,
                 color = Color(0xFF00A8E1),
-                style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
+                style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
             )
 
             val arrowHead = Path().apply {
@@ -1007,7 +1008,7 @@ private fun PrimeVideoVectorLogo() {
             drawPath(
                 path = arrowHead,
                 color = Color(0xFF00A8E1),
-                style = Stroke(width = 3.5.dp.toPx(), cap = StrokeCap.Round)
+                style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round)
             )
         }
     }
