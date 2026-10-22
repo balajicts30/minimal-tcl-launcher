@@ -5,12 +5,16 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
 import android.net.wifi.WifiManager
 import android.os.Bundle
 import android.provider.Settings
+import android.view.SoundEffectConstants
+import android.view.View
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -18,9 +22,15 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -43,6 +53,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -53,6 +64,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -71,8 +83,14 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -83,9 +101,21 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
+
+// Wine Red & Coding Syntax Palette
+private val WineRedPrimary = Color(0xFFC81D4E)
+private val WineRedDeep = Color(0xFF8B1538)
+private val WineRedBright = Color(0xFFE12D62)
+private val CodeCyan = Color(0xFF00F0FF)
+private val CodeGreen = Color(0xFF39FF14)
+private val CodeYellow = Color(0xFFFFEA00)
+private val CodePurple = Color(0xFFB026FF)
+private val CodeOrange = Color(0xFFFF6B00)
+private val CodePink = Color(0xFFFF007F)
 
 enum class TvAppBrand {
     YOUTUBE,
@@ -97,14 +127,17 @@ enum class TvAppBrand {
 data class TvAppTile(
     val brand: TvAppBrand,
     val title: String,
+    val codeTag: String,
     val primaryPackage: String,
     val fallbackPackages: List<String> = emptyList(),
-    val accentColor: Color
+    val neonGlowColor: Color,
+    val secondaryGlowColor: Color,
+    val labelSyntaxColor: Color
 )
 
 data class WeatherState(
     val temperatureText: String = "--°C",
-    val conditionText: String = "Loading weather",
+    val conditionText: String = "Loading...",
     val cityText: String = "",
     val iconSymbol: String = "☀"
 )
@@ -113,47 +146,65 @@ private val TV_APPS = listOf(
     TvAppTile(
         brand = TvAppBrand.YOUTUBE,
         title = "YouTube",
+        codeTag = "<yt/>",
         primaryPackage = "com.google.android.youtube.tv",
         fallbackPackages = listOf("com.google.android.youtube"),
-        accentColor = Color(0xFFFF0033)
+        neonGlowColor = Color(0xFFFF004D),
+        secondaryGlowColor = Color(0xFFFF5500),
+        labelSyntaxColor = WineRedBright
     ),
     TvAppTile(
         brand = TvAppBrand.NETFLIX,
         title = "Netflix",
+        codeTag = "<nf/>",
         primaryPackage = "com.netflix.ninja",
         fallbackPackages = listOf("com.netflix.mediaclient"),
-        accentColor = Color(0xFFE50914)
+        neonGlowColor = Color(0xFFE50914),
+        secondaryGlowColor = Color(0xFFFF0055),
+        labelSyntaxColor = CodeOrange
     ),
     TvAppTile(
         brand = TvAppBrand.JIO_HOTSTAR,
         title = "JioHotstar",
+        codeTag = "<jh/>",
         primaryPackage = "in.startv.hotstar",
         fallbackPackages = listOf(
             "in.startv.hotstar.dplus.tv",
             "com.jio.media.stb.ondemand"
         ),
-        accentColor = Color(0xFF3B82F6)
+        neonGlowColor = Color(0xFFA855F7),
+        secondaryGlowColor = Color(0xFF00F0FF),
+        labelSyntaxColor = CodePurple
     ),
     TvAppTile(
         brand = TvAppBrand.PRIME_VIDEO,
         title = "Prime Video",
+        codeTag = "<pv/>",
         primaryPackage = "com.amazon.amazonvideo.livingroom",
         fallbackPackages = listOf("com.amazon.avod.thirdpartyclient"),
-        accentColor = Color(0xFF00A8E1)
+        neonGlowColor = Color(0xFF00F0FF),
+        secondaryGlowColor = Color(0xFF0077FF),
+        labelSyntaxColor = CodeCyan
     )
 )
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val codingTypography = Typography(
+            bodyLarge = TextStyle(fontFamily = FontFamily.Monospace, color = WineRedPrimary),
+            bodyMedium = TextStyle(fontFamily = FontFamily.Monospace, color = WineRedPrimary),
+            titleLarge = TextStyle(fontFamily = FontFamily.Monospace, color = WineRedPrimary)
+        )
         setContent {
             MaterialTheme(
                 colorScheme = darkColorScheme(
                     background = Color.Black,
-                    surface = Color(0xFF0A0A0A),
-                    onBackground = Color.White,
-                    onSurface = Color.White
-                )
+                    surface = Color(0xFF070707),
+                    onBackground = WineRedPrimary,
+                    onSurface = WineRedPrimary
+                ),
+                typography = codingTypography
             ) {
                 BackHandler(enabled = true) {
                     // Keep user on launcher home screen when pressing Back on the TV remote
@@ -167,6 +218,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MinimalTvLauncherScreen() {
     val context = LocalContext.current
+    val view = LocalView.current
     val firstCardFocusRequester = remember { FocusRequester() }
 
     var wifiLabel by remember { mutableStateOf(resolveConnectedWifiName(context)) }
@@ -178,7 +230,6 @@ fun MinimalTvLauncherScreen() {
         wifiLabel = resolveConnectedWifiName(context)
     }
 
-    // Request location permission once so Android allows reading the connected Wi-Fi SSID
     LaunchedEffect(Unit) {
         firstCardFocusRequester.requestFocus()
         val hasFine = ContextCompat.checkSelfPermission(
@@ -200,7 +251,6 @@ fun MinimalTvLauncherScreen() {
         }
     }
 
-    // Poll Wi-Fi connectivity status every 5 seconds
     LaunchedEffect(Unit) {
         while (true) {
             wifiLabel = resolveConnectedWifiName(context)
@@ -208,7 +258,6 @@ fun MinimalTvLauncherScreen() {
         }
     }
 
-    // Fetch live weather periodically (every 15 minutes)
     LaunchedEffect(Unit) {
         while (true) {
             weather = fetchLiveWeather()
@@ -224,13 +273,15 @@ fun MinimalTvLauncherScreen() {
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black)
-                .padding(horizontal = 64.dp, vertical = 48.dp),
+                .padding(horizontal = 64.dp, vertical = 42.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Top Section: Big Date & Time on Left + Weather, Wi-Fi Name & Settings on Right
+            // Top Section: Greeting + Big Date/Time on Left, Weather + Wi-Fi + Settings on Right
             TopStatusHeroBar(
                 weather = weather,
                 wifiName = wifiLabel,
+                onNavigateSound = { playRemoteMoveSound(context, view) },
+                onSelectSound = { playRemoteSelectSound(context, view) },
                 onWifiClick = {
                     val hasLoc = ContextCompat.checkSelfPermission(
                         context,
@@ -250,10 +301,10 @@ fun MinimalTvLauncherScreen() {
                 onSettingsClick = { launchSystemSettings(context) }
             )
 
-            // Center Section: 4 Minimal D-Pad Focusable App Icon Tiles
+            // Center Section: 4 Minimal D-Pad Focusable App Tiles with Neon Glow Behind Icon
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(36.dp, Alignment.CenterHorizontally),
+                horizontalArrangement = Arrangement.spacedBy(42.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TV_APPS.forEachIndexed { index, app ->
@@ -266,13 +317,17 @@ fun MinimalTvLauncherScreen() {
                     MinimalAppIconCard(
                         app = app,
                         modifier = modifier,
-                        onClick = { launchTvApp(context, app) }
+                        onFocusSound = { playRemoteMoveSound(context, view) },
+                        onClick = {
+                            playRemoteSelectSound(context, view)
+                            launchTvApp(context, app)
+                        }
                     )
                 }
             }
 
-            // Subtle Minimal Bottom Spacer
-            Spacer(modifier = Modifier.height(8.dp))
+            // Bottom Section: "Developed by {L-PATH}" with multicolor coding characters
+            DeveloperSignatureFooter()
         }
     }
 }
@@ -281,19 +336,31 @@ fun MinimalTvLauncherScreen() {
 private fun TopStatusHeroBar(
     weather: WeatherState,
     wifiName: String,
+    onNavigateSound: () -> Unit,
+    onSelectSound: () -> Unit,
     onWifiClick: () -> Unit,
     onSettingsClick: () -> Unit
 ) {
     var timeMain by remember { mutableStateOf("") }
     var timeAmPm by remember { mutableStateOf("") }
     var dateFull by remember { mutableStateOf("") }
+    var greetingText by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         val mainFmt = SimpleDateFormat("hh:mm", Locale.getDefault())
         val amPmFmt = SimpleDateFormat("a", Locale.getDefault())
-        val dateFmt = SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.getDefault())
+        val dateFmt = SimpleDateFormat("EEE, dd MMM yyyy", Locale.getDefault())
         while (true) {
             val now = Date()
+            val cal = Calendar.getInstance().apply { time = now }
+            val hour = cal.get(Calendar.HOUR_OF_DAY)
+
+            greetingText = when (hour) {
+                in 5..11 -> "Good Morning"
+                in 12..16 -> "Good Noon"
+                else -> "Good Evening"
+            }
+
             timeMain = mainFmt.format(now)
             timeAmPm = amPmFmt.format(now).uppercase(Locale.getDefault())
             dateFull = dateFmt.format(now)
@@ -306,34 +373,62 @@ private fun TopStatusHeroBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Top
     ) {
-        // Big Font Time & Date
+        // Left: Time-of-Day Greeting + Big Coding Font Clock & Date in Wine Red + Syntax Colors
         Column {
+            // Coding-style Greeting Line: // Good Morning | Good Noon | Good Evening
+            Text(
+                text = buildAnnotatedString {
+                    withStyle(SpanStyle(color = CodeGreen, fontWeight = FontWeight.Bold)) {
+                        append(">> ")
+                    }
+                    withStyle(SpanStyle(color = WineRedBright, fontWeight = FontWeight.Bold)) {
+                        append(greetingText)
+                    }
+                    withStyle(SpanStyle(color = CodeCyan, fontWeight = FontWeight.Normal)) {
+                        append(" ();")
+                    }
+                },
+                fontFamily = FontFamily.Monospace,
+                fontSize = 24.sp
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Big Clock in Wine Red Coding Font
             Row(
                 verticalAlignment = Alignment.Bottom
             ) {
                 Text(
                     text = timeMain,
-                    color = Color.White,
-                    fontSize = 76.sp,
-                    fontWeight = FontWeight.Light,
-                    letterSpacing = (-1.5).sp
+                    color = WineRedPrimary,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 74.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-1).sp
                 )
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = timeAmPm,
-                    color = Color(0xFF9CA3AF),
+                    text = "[$timeAmPm]",
+                    color = CodeYellow,
+                    fontFamily = FontFamily.Monospace,
                     fontSize = 22.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
             }
+
             Spacer(modifier = Modifier.height(4.dp))
+
+            // Full Date in Wine Red + Coding Syntax Brackets
             Text(
-                text = dateFull,
-                color = Color(0xFFD1D5DB),
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Normal,
-                letterSpacing = 0.2.sp
+                text = buildAnnotatedString {
+                    withStyle(SpanStyle(color = CodePurple)) { append("date: ") }
+                    withStyle(SpanStyle(color = WineRedBright, fontWeight = FontWeight.SemiBold)) {
+                        append("\"$dateFull\"")
+                    }
+                },
+                fontFamily = FontFamily.Monospace,
+                fontSize = 20.sp
             )
         }
 
@@ -347,21 +442,31 @@ private fun TopStatusHeroBar(
                 icon = weather.iconSymbol,
                 primaryText = weather.temperatureText,
                 secondaryText = if (weather.cityText.isNotBlank()) {
-                    "${weather.conditionText} • ${weather.cityText}"
+                    "${weather.conditionText} @ ${weather.cityText}"
                 } else {
                     weather.conditionText
                 }
             )
 
-            // Connected Wi-Fi Name Pill (Focusable to open Wi-Fi settings or grant SSID permission)
+            // Connected Wi-Fi SSID Pill
             FocusableStatusPill(
-                icon = "📶",
+                icon = "WIFI:",
                 label = wifiName,
-                onClick = onWifiClick
+                onFocusSound = onNavigateSound,
+                onClick = {
+                    onSelectSound()
+                    onWifiClick()
+                }
             )
 
-            // Minimal Settings Icon Button
-            FocusableSettingsButton(onClick = onSettingsClick)
+            // Settings Button
+            FocusableSettingsButton(
+                onFocusSound = onNavigateSound,
+                onClick = {
+                    onSelectSound()
+                    onSettingsClick()
+                }
+            )
         }
     }
 }
@@ -374,29 +479,32 @@ private fun StatusInfoPill(
 ) {
     Row(
         modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .background(Color(0xFF0D0D0D))
-            .border(1.dp, Color(0xFF262626), RoundedCornerShape(50))
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color(0xFF0A0A0A))
+            .border(1.dp, WineRedDeep, RoundedCornerShape(14.dp))
+            .padding(horizontal = 18.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text(
             text = icon,
-            fontSize = 18.sp,
-            color = Color(0xFFFBBF24)
+            fontFamily = FontFamily.Monospace,
+            fontSize = 17.sp,
+            color = CodeYellow
         )
         Text(
             text = primaryText,
-            color = Color.White,
-            fontSize = 17.sp,
-            fontWeight = FontWeight.SemiBold
+            fontFamily = FontFamily.Monospace,
+            color = WineRedBright,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold
         )
         Text(
             text = secondaryText,
-            color = Color(0xFF9CA3AF),
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Normal
+            fontFamily = FontFamily.Monospace,
+            color = CodeCyan,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium
         )
     }
 }
@@ -405,28 +513,34 @@ private fun StatusInfoPill(
 private fun FocusableStatusPill(
     icon: String,
     label: String,
+    onFocusSound: () -> Unit,
     onClick: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
 
     val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.06f else 1.0f,
+        targetValue = if (isFocused) 1.07f else 1.0f,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "wifiScale"
     )
     val borderColor by animateColorAsState(
-        targetValue = if (isFocused) Color.White else Color(0xFF262626),
+        targetValue = if (isFocused) CodeCyan else WineRedDeep,
         label = "wifiBorder"
     )
 
     Row(
         modifier = Modifier
             .scale(scale)
-            .clip(RoundedCornerShape(50))
-            .background(if (isFocused) Color(0xFF1A1A1A) else Color(0xFF0D0D0D))
-            .border(if (isFocused) 2.dp else 1.dp, borderColor, RoundedCornerShape(50))
-            .onFocusChanged { isFocused = it.isFocused }
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (isFocused) Color(0xFF14080C) else Color(0xFF0A0A0A))
+            .border(if (isFocused) 2.dp else 1.dp, borderColor, RoundedCornerShape(14.dp))
+            .onFocusChanged {
+                if (it.isFocused && !isFocused) {
+                    onFocusSound()
+                }
+                isFocused = it.isFocused
+            }
             .onKeyEvent { event ->
                 if (event.type == KeyEventType.KeyDown &&
                     (event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter)
@@ -443,26 +557,32 @@ private fun FocusableStatusPill(
                 indication = null,
                 onClick = onClick
             )
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(horizontal = 18.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
             text = icon,
-            fontSize = 16.sp,
-            color = Color(0xFF38BDF8)
+            fontFamily = FontFamily.Monospace,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = CodeGreen
         )
         Text(
-            text = label,
-            color = Color.White,
+            text = "\"$label\"",
+            fontFamily = FontFamily.Monospace,
+            color = WineRedBright,
             fontSize = 15.sp,
-            fontWeight = FontWeight.Medium
+            fontWeight = FontWeight.SemiBold
         )
     }
 }
 
 @Composable
-private fun FocusableSettingsButton(onClick: () -> Unit) {
+private fun FocusableSettingsButton(
+    onFocusSound: () -> Unit,
+    onClick: () -> Unit
+) {
     var isFocused by remember { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
 
@@ -472,21 +592,26 @@ private fun FocusableSettingsButton(onClick: () -> Unit) {
         label = "settingsScale"
     )
     val borderColor by animateColorAsState(
-        targetValue = if (isFocused) Color.White else Color(0xFF262626),
+        targetValue = if (isFocused) WineRedBright else WineRedDeep,
         label = "settingsBorder"
     )
 
     Box(
         modifier = Modifier
             .scale(scale)
-            .clip(RoundedCornerShape(50))
-            .background(if (isFocused) Color(0xFF1A1A1A) else Color(0xFF0D0D0D))
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (isFocused) Color(0xFF19080D) else Color(0xFF0A0A0A))
             .border(
                 width = if (isFocused) 2.dp else 1.dp,
                 color = borderColor,
-                shape = RoundedCornerShape(50)
+                shape = RoundedCornerShape(14.dp)
             )
-            .onFocusChanged { isFocused = it.isFocused }
+            .onFocusChanged {
+                if (it.isFocused && !isFocused) {
+                    onFocusSound()
+                }
+                isFocused = it.isFocused
+            }
             .onKeyEvent { event ->
                 if (event.type == KeyEventType.KeyDown &&
                     (event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter)
@@ -503,25 +628,21 @@ private fun FocusableSettingsButton(onClick: () -> Unit) {
                 indication = null,
                 onClick = onClick
             )
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(horizontal = 18.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = "⚙",
-                color = Color.White,
-                fontSize = 17.sp
-            )
-            Text(
-                text = "Settings",
-                color = Color.White,
-                fontSize = 15.sp,
-                fontWeight = if (isFocused) FontWeight.SemiBold else FontWeight.Medium
-            )
-        }
+        Text(
+            text = buildAnnotatedString {
+                withStyle(SpanStyle(color = CodeOrange, fontWeight = FontWeight.Bold)) {
+                    append("⚙ ")
+                }
+                withStyle(SpanStyle(color = WineRedBright, fontWeight = FontWeight.Bold)) {
+                    append("cfg()")
+                }
+            },
+            fontFamily = FontFamily.Monospace,
+            fontSize = 15.sp
+        )
     }
 }
 
@@ -529,26 +650,36 @@ private fun FocusableSettingsButton(onClick: () -> Unit) {
 private fun MinimalAppIconCard(
     app: TvAppTile,
     modifier: Modifier = Modifier,
+    onFocusSound: () -> Unit,
     onClick: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    var hasInitializedFocus by remember { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
 
     val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.12f else 1.0f,
+        targetValue = if (isFocused) 1.14f else 1.0f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioLowBouncy,
             stiffness = Spring.StiffnessMediumLow
         ),
         label = "tileScale"
     )
-    val borderColor by animateColorAsState(
-        targetValue = if (isFocused) Color.White else Color(0xFF1F1F1F),
-        label = "tileBorder"
+
+    val infiniteTransition = rememberInfiniteTransition(label = "neonPulse")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.55f,
+        targetValue = 0.92f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1100, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseAlpha"
     )
-    val labelColor by animateColorAsState(
-        targetValue = if (isFocused) Color.White else Color(0xFF8E8E93),
-        label = "labelColor"
+
+    val borderColor by animateColorAsState(
+        targetValue = if (isFocused) app.neonGlowColor else Color(0xFF1F1016),
+        label = "tileBorder"
     )
 
     val tileShape = RoundedCornerShape(28.dp)
@@ -556,7 +687,13 @@ private fun MinimalAppIconCard(
     Column(
         modifier = modifier
             .scale(scale)
-            .onFocusChanged { isFocused = it.isFocused }
+            .onFocusChanged { state ->
+                if (state.isFocused && !isFocused && hasInitializedFocus) {
+                    onFocusSound()
+                }
+                hasInitializedFocus = true
+                isFocused = state.isFocused
+            }
             .onKeyEvent { event ->
                 if (event.type == KeyEventType.KeyDown &&
                     (event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter)
@@ -575,12 +712,31 @@ private fun MinimalAppIconCard(
             ),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Box with multi-layered radial NEON GLOW behind the icon when focused
         Box(
             modifier = Modifier
-                .size(width = 188.dp, height = 188.dp)
+                .size(width = 192.dp, height = 192.dp)
+                .drawBehind {
+                    if (isFocused) {
+                        val glowRadius = size.maxDimension * 0.88f
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    app.neonGlowColor.copy(alpha = 0.68f * pulseAlpha),
+                                    app.secondaryGlowColor.copy(alpha = 0.32f * pulseAlpha),
+                                    Color.Transparent
+                                ),
+                                center = center,
+                                radius = glowRadius
+                            ),
+                            radius = glowRadius,
+                            center = center
+                        )
+                    }
+                }
                 .clip(tileShape)
                 .background(
-                    if (isFocused) Color(0xFF141414) else Color(0xFF0A0A0A)
+                    if (isFocused) Color(0xFF0E0609) else Color(0xFF070707)
                 )
                 .border(
                     width = if (isFocused) 3.dp else 1.dp,
@@ -589,6 +745,21 @@ private fun MinimalAppIconCard(
                 ),
             contentAlignment = Alignment.Center
         ) {
+            // Inner neon halo directly behind the brand icon
+            if (isFocused) {
+                Canvas(modifier = Modifier.size(144.dp)) {
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                app.neonGlowColor.copy(alpha = 0.42f * pulseAlpha),
+                                Color.Transparent
+                            )
+                        ),
+                        radius = size.minDimension * 0.62f
+                    )
+                }
+            }
+
             when (app.brand) {
                 TvAppBrand.YOUTUBE -> YouTubeVectorLogo()
                 TvAppBrand.NETFLIX -> NetflixVectorLogo()
@@ -597,24 +768,95 @@ private fun MinimalAppIconCard(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
+        // Coding Font App Title in Wine Red + Multi-Color Syntax Tags
         Text(
-            text = app.title,
-            color = labelColor,
+            text = buildAnnotatedString {
+                if (isFocused) {
+                    withStyle(SpanStyle(color = CodeGreen, fontWeight = FontWeight.Bold)) {
+                        append("> ")
+                    }
+                }
+                withStyle(
+                    SpanStyle(
+                        color = if (isFocused) WineRedBright else WineRedPrimary,
+                        fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium
+                    )
+                ) {
+                    append(app.title)
+                }
+                withStyle(
+                    SpanStyle(
+                        color = if (isFocused) app.labelSyntaxColor else WineRedDeep,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Normal
+                    )
+                ) {
+                    append(" ${app.codeTag}")
+                }
+            },
+            fontFamily = FontFamily.Monospace,
             fontSize = 18.sp,
-            fontWeight = if (isFocused) FontWeight.SemiBold else FontWeight.Normal,
             textAlign = TextAlign.Center
         )
 
         Spacer(modifier = Modifier.height(6.dp))
 
-        // Focus indicator dot underneath active app
+        // Neon underline indicator bar when focused
         Box(
             modifier = Modifier
-                .size(6.dp)
+                .width(if (isFocused) 56.dp else 8.dp)
+                .height(4.dp)
                 .clip(CircleShape)
-                .background(if (isFocused) app.accentColor else Color.Transparent)
+                .background(if (isFocused) app.neonGlowColor else Color.Transparent)
+        )
+    }
+}
+
+@Composable
+private fun DeveloperSignatureFooter() {
+    val lPathColors = listOf(
+        '{' to CodeCyan,
+        'L' to CodeGreen,
+        '-' to CodeYellow,
+        'P' to CodePink,
+        'A' to CodeOrange,
+        'T' to CodePurple,
+        'H' to Color(0xFF38BDF8),
+        '}' to Color(0xFFFF3131)
+    )
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = buildAnnotatedString {
+                withStyle(
+                    SpanStyle(
+                        color = WineRedPrimary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                ) {
+                    append("Developed by ")
+                }
+                lPathColors.forEach { (ch, color) ->
+                    withStyle(
+                        SpanStyle(
+                            color = color,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    ) {
+                        append(ch)
+                    }
+                }
+            },
+            fontFamily = FontFamily.Monospace,
+            fontSize = 18.sp,
+            letterSpacing = 1.2.sp,
+            textAlign = TextAlign.Center
         )
     }
 }
@@ -627,7 +869,6 @@ private fun YouTubeVectorLogo() {
         val rectHeight = h * 0.70f
         val topOffset = (h - rectHeight) / 2f
 
-        // Iconic YouTube Red Rounded Play Screen
         drawRoundRect(
             color = Color(0xFFFF0033),
             topLeft = Offset(0f, topOffset),
@@ -635,7 +876,6 @@ private fun YouTubeVectorLogo() {
             cornerRadius = CornerRadius(w * 0.22f, w * 0.22f)
         )
 
-        // White Play Triangle
         val playPath = Path().apply {
             moveTo(w * 0.40f, h * 0.35f)
             lineTo(w * 0.66f, h * 0.50f)
@@ -655,21 +895,18 @@ private fun NetflixVectorLogo() {
         val leftX = w * 0.18f
         val rightX = w * 0.60f
 
-        // Left darker crimson vertical stem
         drawRect(
             color = Color(0xFFB1060F),
             topLeft = Offset(leftX, h * 0.08f),
             size = Size(barWidth, h * 0.84f)
         )
 
-        // Right darker crimson vertical stem
         drawRect(
             color = Color(0xFFB1060F),
             topLeft = Offset(rightX, h * 0.08f),
             size = Size(barWidth, h * 0.84f)
         )
 
-        // Center bright Netflix red diagonal ribbon
         val ribbon = Path().apply {
             moveTo(leftX, h * 0.08f)
             lineTo(leftX + barWidth, h * 0.08f)
@@ -704,7 +941,6 @@ private fun JioHotstarVectorLogo() {
             val cx = w / 2f
             val cy = h / 2f
 
-            // Four-point sparkling star emblem
             val starPath = Path().apply {
                 moveTo(cx, h * 0.04f)
                 quadraticBezierTo(cx + w * 0.08f, cy - h * 0.08f, w * 0.96f, cy)
@@ -720,7 +956,6 @@ private fun JioHotstarVectorLogo() {
                 )
             )
 
-            // Secondary sparkle accent
             drawCircle(
                 color = Color.White,
                 radius = w * 0.06f,
@@ -740,7 +975,8 @@ private fun PrimeVideoVectorLogo() {
         Text(
             text = "prime",
             color = Color.White,
-            fontSize = 30.sp,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = (-0.5).sp
         )
@@ -753,7 +989,6 @@ private fun PrimeVideoVectorLogo() {
             val w = size.width
             val h = size.height
 
-            // Iconic Prime Cyan Smile Curve
             val smilePath = Path().apply {
                 moveTo(w * 0.08f, h * 0.25f)
                 quadraticBezierTo(w * 0.50f, h * 0.95f, w * 0.88f, h * 0.28f)
@@ -764,7 +999,6 @@ private fun PrimeVideoVectorLogo() {
                 style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
             )
 
-            // Arrowhead on the right tip of the smile
             val arrowHead = Path().apply {
                 moveTo(w * 0.75f, h * 0.18f)
                 lineTo(w * 0.92f, h * 0.24f)
@@ -779,11 +1013,34 @@ private fun PrimeVideoVectorLogo() {
     }
 }
 
+private fun playRemoteMoveSound(context: Context, view: View) {
+    try {
+        view.playSoundEffect(SoundEffectConstants.NAVIGATION_RIGHT)
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        audioManager?.playSoundEffect(AudioManager.FX_FOCUS_NAVIGATION_RIGHT)
+    } catch (_: Exception) {
+        try {
+            val toneGen = ToneGenerator(AudioManager.STREAM_SYSTEM, 35)
+            toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 28)
+        } catch (_: Exception) {
+        }
+    }
+}
+
+private fun playRemoteSelectSound(context: Context, view: View) {
+    try {
+        view.playSoundEffect(SoundEffectConstants.CLICK)
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        audioManager?.playSoundEffect(AudioManager.FX_KEY_CLICK)
+    } catch (_: Exception) {
+    }
+}
+
 private fun resolveConnectedWifiName(context: Context): String {
     return try {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
-        val activeNetwork = cm?.activeNetwork ?: return "Not Connected"
-        val caps = cm.getNetworkCapabilities(activeNetwork) ?: return "Not Connected"
+        val activeNetwork = cm?.activeNetwork ?: return "Disconnected"
+        val caps = cm.getNetworkCapabilities(activeNetwork) ?: return "Disconnected"
 
         when {
             caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> {
@@ -804,8 +1061,8 @@ private fun resolveConnectedWifiName(context: Context): String {
                 }
             }
             caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "Ethernet"
-            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "Hotspot / Mobile"
-            else -> "Connected"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "Hotspot"
+            else -> "Online"
         }
     } catch (_: Exception) {
         "Wi-Fi"
@@ -818,7 +1075,6 @@ private suspend fun fetchLiveWeather(): WeatherState = withContext(Dispatchers.I
         var lon = 80.2707
         var city = ""
 
-        // Step 1: Resolve approximate TV location by IP (no GPS hardware required on Android TV)
         try {
             val geoConn = (URL("https://ipwho.is/").openConnection() as HttpURLConnection).apply {
                 connectTimeout = 4_000
@@ -836,10 +1092,8 @@ private suspend fun fetchLiveWeather(): WeatherState = withContext(Dispatchers.I
             }
             geoConn.disconnect()
         } catch (_: Exception) {
-            // Keep default coordinates if IP lookup is unavailable
         }
 
-        // Step 2: Query Open-Meteo current weather (free, no API key needed)
         val weatherUrl =
             "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current_weather=true"
         val weatherConn = (URL(weatherUrl).openConnection() as HttpURLConnection).apply {
@@ -867,7 +1121,7 @@ private suspend fun fetchLiveWeather(): WeatherState = withContext(Dispatchers.I
             }
         }
         weatherConn.disconnect()
-        WeatherState(temperatureText = "--°C", conditionText = "Weather unavailable", iconSymbol = "☁")
+        WeatherState(temperatureText = "--°C", conditionText = "Unavailable", iconSymbol = "☁")
     } catch (_: Exception) {
         WeatherState(temperatureText = "--°C", conditionText = "Offline", iconSymbol = "☁")
     }
@@ -875,14 +1129,14 @@ private suspend fun fetchLiveWeather(): WeatherState = withContext(Dispatchers.I
 
 private fun mapWmoWeatherCode(code: Int): Pair<String, String> {
     return when (code) {
-        0 -> "☀" to "Clear Sky"
+        0 -> "☀" to "Clear"
         1, 2 -> "⛅" to "Partly Cloudy"
         3 -> "☁" to "Overcast"
         45, 48 -> "🌫" to "Foggy"
         51, 53, 55, 56, 57 -> "🌦" to "Drizzle"
         61, 63, 65, 66, 67, 80, 81, 82 -> "🌧" to "Rain"
         71, 73, 75, 77, 85, 86 -> "❄" to "Snow"
-        95, 96, 99 -> "⛈" to "Thunderstorm"
+        95, 96, 99 -> "⛈" to "Storm"
         else -> "☀" to "Fair"
     }
 }
@@ -902,7 +1156,6 @@ private fun launchTvApp(context: Context, app: TvAppTile) {
                 context.startActivity(launchIntent)
                 return
             } catch (_: Exception) {
-                // Continue trying next fallback package
             }
         }
     }
